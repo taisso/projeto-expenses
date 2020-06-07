@@ -1,8 +1,10 @@
+import 'dart:math';
+import 'dart:io';
 import 'package:expenses/components/transaction_form.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/material.dart';
-import 'dart:math';
 import './models/transaction.dart';
 import './components/transaction_form.dart';
 import './components/transaction_list.dart';
@@ -13,9 +15,7 @@ main() => runApp(Expenses());
 class Expenses extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitDown
-    ]);
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitDown]);
 
     return MaterialApp(
       home: MyHomePage(),
@@ -96,41 +96,53 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  Widget _getIconButton(IconData icon, Function fn) {
+    return Platform.isIOS
+        ? GestureDetector(onTap: fn, child: Icon(icon))
+        : IconButton(icon: Icon(icon), onPressed: fn);
+  }
+
   @override
   Widget build(BuildContext context) {
     bool _isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
 
-    final appBar = AppBar(
-      title: Text(
-        'Despesas pessoais',
-        style: TextStyle(
-          fontSize: 20 * MediaQuery.of(context).textScaleFactor,
-        ),
+    final actions = <Widget>[
+      if (_isLandscape)
+        _getIconButton(_showChart ? Icons.list : Icons.show_chart, () {
+          setState(() {
+            _showChart = !_showChart;
+          });
+        }),
+      _getIconButton(
+        Platform.isIOS ? CupertinoIcons.add : Icons.add,
+        () => _openTransactionFormModal(context),
       ),
-      actions: <Widget>[
-        if (_isLandscape)
-          IconButton(
-            icon: Icon(_showChart ? Icons.list : Icons.pie_chart),
-            onPressed: () {
-              setState(() {
-                _showChart = !_showChart;
-              });
-            },
-          ),
-        IconButton(
-          icon: Icon(Icons.add),
-          onPressed: () => _openTransactionFormModal(context),
-        ),
-      ],
-    );
+    ];
+
+    final PreferredSizeWidget appBar = Platform.isIOS
+        ? CupertinoNavigationBar(
+            middle: Text('Despesas Pessoais'),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: actions,
+            ),
+          )
+        : AppBar(
+            title: Text(
+              'Despesas pessoais',
+              style: TextStyle(
+                fontSize: 20 * MediaQuery.of(context).textScaleFactor,
+              ),
+            ),
+            actions: actions,
+          );
     final availabelHeight = MediaQuery.of(context).size.height -
         appBar.preferredSize.height -
         MediaQuery.of(context).padding.top;
 
-    return Scaffold(
-      appBar: appBar,
-      body: SingleChildScrollView(
+    final bodyPage = SafeArea(
+      child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
@@ -147,13 +159,26 @@ class _MyHomePageState extends State<MyHomePage> {
           ],
         ),
       ),
-      floatingActionButton: _isLandscape
-          ? null
-          : FloatingActionButton(
-              child: Icon(Icons.add),
-              onPressed: () => _openTransactionFormModal(context),
-            ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
+
+    return Platform.isIOS
+        ? CupertinoPageScaffold(
+            navigationBar: appBar,
+            child: bodyPage,
+          )
+        : Scaffold(
+            appBar: appBar,
+            body: bodyPage,
+            floatingActionButton: _isLandscape
+                ? null
+                : Platform.isIOS
+                    ? Container()
+                    : FloatingActionButton(
+                        child: Icon(Icons.add),
+                        onPressed: () => _openTransactionFormModal(context),
+                      ),
+            floatingActionButtonLocation:
+                FloatingActionButtonLocation.centerFloat,
+          );
   }
 }
